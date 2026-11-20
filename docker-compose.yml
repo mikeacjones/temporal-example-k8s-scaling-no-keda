@@ -1,0 +1,27 @@
+# Optional SDK rehearsal; the Kubernetes example uses Temporal Cloud.
+services:
+  temporal:
+    image: temporalio/temporal:1.10.1
+    command: ["--disable-config-file", "server", "start-dev", "--ip", "0.0.0.0", "--ui-ip", "0.0.0.0", "--log-level", "warn"]
+    ports:
+      - "127.0.0.1:7233:7233"
+      - "127.0.0.1:8233:8233"
+    healthcheck:
+      test: ["CMD", "temporal", "--disable-config-file", "--address", "127.0.0.1:7233", "operator", "cluster", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  worker:
+    build: ./sample-worker
+    image: temporal-hpa-worker:v1
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: media-processing
+      TEMPORAL_DEPLOYMENT_NAME: media-demo/media
+      TEMPORAL_WORKER_BUILD_ID: v1
+    ports:
+      - "127.0.0.1:19090:9090"
+    depends_on:
+      temporal:
+        condition: service_healthy

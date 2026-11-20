@@ -1,0 +1,64 @@
+# Credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+values.local.yaml
+values.*.local.yaml
+secrets/
+.secrets/
+certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*-api-key.txt
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+.kube/
+.aws/
+
+# Generated Helm dependencies and distribution packages; keep Chart.lock
+/chart/charts/
+/dist/
+/*.zip
+
+# Validation output, caches and compiled files
+.run/
+.cache/
+__pycache__/
+.pytest_cache/
+*.pyc
+/bin/
+/sample-worker/worker
+*.test
+*.out
+coverage.*
+*.log
+
+# Local agent instructions and session data
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.codex/
+AGENTS.md
+AGENTS.override.md
+.cursor/
+.cursorrules
+.cursorignore
+.windsurf/
+.windsurfrules
+GEMINI.md
+.github/copilot-instructions.md
+.github/instructions/
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+._*
+Thumbs.db

@@ -1,0 +1,54 @@
+{{- if .Values.load.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-load
+spec:
+  schedule: "0 0 1 1 *"
+  suspend: true
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 1800
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: load
+              image: {{ printf "%s:%s" .Values.worker.image.repository .Values.worker.image.tag | quote }}
+              imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+              args:
+                - load
+                - -count={{ .Values.load.count }}
+                - -interval={{ .Values.load.interval }}
+                - -activity-duration={{ .Values.load.activityDuration }}
+              env:
+                - name: TEMPORAL_ADDRESS
+                  value: {{ .Values.temporal.address | quote }}
+                - name: TEMPORAL_NAMESPACE
+                  value: {{ .Values.temporal.namespace | quote }}
+                - name: TEMPORAL_TLS
+                  value: "true"
+                - name: TEMPORAL_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.temporal.apiKeySecret | quote }}
+                      key: {{ .Values.temporal.apiKeySecretKey | quote }}
+                - name: TEMPORAL_TASK_QUEUE
+                  value: {{ .Values.temporal.taskQueue | quote }}
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {cpu: 500m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+{{- end }}

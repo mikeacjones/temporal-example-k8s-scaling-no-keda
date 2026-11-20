@@ -1,0 +1,54 @@
+apiVersion: temporal.io/v1alpha1
+kind: WorkerResourceTemplate
+metadata:
+  name: {{ .Release.Name }}-hpa
+spec:
+  workerDeploymentRef:
+    name: {{ .Release.Name }}
+  template:
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    spec:
+      # Empty means the controller injects this version's Deployment.
+      scaleTargetRef: {}
+      minReplicas: {{ .Values.autoscaling.minReplicas }}
+      maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+      metrics:
+        - type: External
+          external:
+            metric:
+              name: temporal_slot_utilization
+              selector:
+                # The controller adds temporal_worker_deployment_name,
+                # temporal_worker_build_id and temporal_namespace here.
+                matchLabels:
+                  worker_type: ActivityWorker
+                  task_queue: {{ .Values.temporal.taskQueue | quote }}
+            target:
+              type: Value
+              value: {{ .Values.autoscaling.slotUtilizationTarget | quote }}
+        - type: External
+          external:
+            metric:
+              name: temporal_cloud_v1_approximate_backlog_count
+              selector:
+                matchLabels:
+                  temporal_task_queue: {{ .Values.temporal.taskQueue | quote }}
+                  task_type: Activity
+            target:
+              type: AverageValue
+              averageValue: {{ .Values.autoscaling.backlogTasksPerReplica | quote }}
+      # HPA calculates both recommendations and chooses the larger one.
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Pods
+              value: 2
+              periodSeconds: 30
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDownStabilizationSeconds }}
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 60

@@ -1,0 +1,4 @@
+FROM python:3.13-alpine
+RUN pip install --no-cache-dir PyYAML==6.0.3 jsonschema==4.25.1
+WORKDIR /work
+ENTRYPOINT ["python"]

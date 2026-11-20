@@ -1,0 +1,8 @@
+temporal:
+  address: example.a1b2c.tmprl.cloud:7233
+  namespace: example.a1b2c
+  taskQueue: media-processing
+worker:
+  image:
+    repository: temporal-hpa-worker
+    tag: v1

@@ -1,0 +1,10 @@
+WorkerDeployment: {{ .Release.Namespace }}/{{ .Release.Name }}
+Task Queue: {{ .Values.temporal.taskQueue }}
+
+Watch version-specific Deployments and HPAs:
+  kubectl -n {{ .Release.Namespace }} get workerdeployments,workerresourcetemplates,deployments,hpa
+
+Start one finite batch only after the first version is Current:
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ .Release.Name }}-load {{ .Release.Name }}-load-1
+
+Each active version has its own HPA and min/max replica limits. KEDA is not used.

@@ -1,0 +1,6 @@
+{{- if gt (int .Values.autoscaling.minReplicas) (int .Values.autoscaling.maxReplicas) }}
+{{- fail "autoscaling.minReplicas must be <= autoscaling.maxReplicas" }}
+{{- end }}
+{{- if gt (len (printf "%s_%s" .Release.Namespace .Release.Name)) 63 }}
+{{- fail "namespace + '_' + release name must be <= 63 characters for HPA metric labels" }}
+{{- end }}

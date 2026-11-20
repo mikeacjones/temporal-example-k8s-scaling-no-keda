@@ -1,0 +1,43 @@
+# v1 and v2 keep separate slot ratios and backlog sums, including priority aggregation.
+rule_files:
+- /work/.run/recording-rules.yml
+evaluation_interval: 15s
+tests:
+- interval: 15s
+  input_series:
+  - series: temporal_worker_task_slots_used{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v1",pod="a"}
+    values: 4+0x4
+  - series: temporal_worker_task_slots_available{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v1",pod="a"}
+    values: 0+0x4
+  - series: temporal_worker_task_slots_used{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v1",pod="b"}
+    values: 2+0x4
+  - series: temporal_worker_task_slots_available{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v1",pod="b"}
+    values: 2+0x4
+  - series: temporal_worker_task_slots_used{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v2",pod="c"}
+    values: 0+0x4
+  - series: temporal_worker_task_slots_available{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v2",pod="c"}
+    values: 4+0x4
+  - series: temporal_cloud_v1_approximate_backlog_count{temporal_namespace="example.a1b2c",temporal_worker_deployment_name="media-demo_media",temporal_task_queue="media-processing",task_type="Activity",temporal_worker_build_id="v1",task_priority="1"}
+    values: 12+0x4
+  - series: temporal_cloud_v1_approximate_backlog_count{temporal_namespace="example.a1b2c",temporal_worker_deployment_name="media-demo_media",temporal_task_queue="media-processing",task_type="Activity",temporal_worker_build_id="v1",task_priority="2"}
+    values: 4+0x4
+  - series: temporal_cloud_v1_approximate_backlog_count{temporal_namespace="example.a1b2c",temporal_worker_deployment_name="media-demo_media",temporal_task_queue="media-processing",task_type="Activity",temporal_worker_build_id="v2",task_priority="1"}
+    values: 2+0x4
+  promql_expr_test:
+  - expr: temporal_slot_utilization
+    eval_time: 1m
+    exp_samples:
+    - labels: temporal_slot_utilization{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v1"}
+      value: 0.75
+    - labels: temporal_slot_utilization{temporal_worker_deployment_name="media-demo_media",temporal_namespace="example.a1b2c",worker_type="ActivityWorker",task_queue="media-processing",temporal_worker_build_id="v2"}
+      value: 0
+  - expr: sum(temporal_cloud_v1_approximate_backlog_count{temporal_namespace="example.a1b2c",temporal_worker_deployment_name="media-demo_media",temporal_task_queue="media-processing",task_type="Activity",temporal_worker_build_id="v1"})
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 16
+  - expr: sum(temporal_cloud_v1_approximate_backlog_count{temporal_namespace="example.a1b2c",temporal_worker_deployment_name="media-demo_media",temporal_task_queue="media-processing",task_type="Activity",temporal_worker_build_id="v2"})
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 2

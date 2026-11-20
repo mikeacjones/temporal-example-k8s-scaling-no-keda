@@ -1,0 +1,54 @@
+apiVersion: temporal.io/v1alpha1
+kind: WorkerDeployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  workerOptions:
+    connectionRef:
+      name: {{ .Release.Name }}
+    temporalNamespace: {{ .Values.temporal.namespace | quote }}
+  rollout:
+    {{- toYaml .Values.rollout | nindent 4 }}
+  sunset:
+    {{- toYaml .Values.sunset | nindent 4 }}
+  deployment:
+    # Omit replicas: the HPA owns the scale of each active version.
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/name: temporal-worker-hpa
+      spec:
+        automountServiceAccountToken: false
+        terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        containers:
+          - name: worker
+            image: {{ printf "%s:%s" .Values.worker.image.repository .Values.worker.image.tag | quote }}
+            imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+            env:
+              - name: TEMPORAL_TASK_QUEUE
+                value: {{ .Values.temporal.taskQueue | quote }}
+              - name: ACTIVITY_SLOTS
+                value: {{ .Values.worker.activitySlots | quote }}
+            # The controller injects connection/auth, deployment name and
+            # Build ID. The sample worker reads these env vars in the SDK.
+            ports:
+              - name: metrics
+                containerPort: 9090
+            readinessProbe:
+              httpGet:
+                path: /healthz
+                port: metrics
+              initialDelaySeconds: 2
+              periodSeconds: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: [ALL]
+            resources:
+              {{- toYaml .Values.worker.resources | nindent 14 }}

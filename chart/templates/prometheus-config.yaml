@@ -1,0 +1,91 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-worker-hpa-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    rule_files:
+      - /etc/config/recording-rules.yml
+    scrape_configs:
+      - job_name: temporal-workers
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [{{ .Release.Namespace | quote }}]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_temporal_io_deployment_name]
+            regex: {{ .Release.Name | quote }}
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_phase]
+            regex: Running
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            regex: worker
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: metrics
+            action: keep
+          # Match the Cloud metrics and controller-generated HPA selectors.
+          # Keep the SDK's task_queue and worker_type labels.
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_temporal_io_deployment_name]
+            separator: ";"
+            regex: "(.+);(.+)"
+            target_label: temporal_worker_deployment_name
+            replacement: "$1_$2"
+          - source_labels: [__meta_kubernetes_pod_label_temporal_io_build_id]
+            target_label: temporal_worker_build_id
+          - target_label: temporal_namespace
+            replacement: {{ .Values.temporal.namespace | quote }}
+      - job_name: temporal-cloud
+        scheme: https
+        metrics_path: /v1/metrics
+        scrape_interval: 30s
+        scrape_timeout: 10s
+        honor_timestamps: true
+        authorization:
+          type: Bearer
+          credentials_file: /etc/temporal-metrics/api-key
+        static_configs:
+          - targets: [metrics.temporal.io]
+        # Opt in to the version labels. Without these labels, per-version
+        # backlog cannot be selected by the HPAs.
+        params:
+          labels:
+            - temporal_worker_deployment_name
+            - temporal_worker_build_id
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: temporal_cloud_v1_approximate_backlog_count
+            action: keep
+          - source_labels: [temporal_namespace]
+            regex: {{ .Values.temporal.namespace | regexQuoteMeta | quote }}
+            action: keep
+          - source_labels: [temporal_worker_deployment_name]
+            regex: {{ printf "%s_%s" .Release.Namespace .Release.Name | regexQuoteMeta | quote }}
+            action: keep
+  recording-rules.yml: |
+    groups:
+      - name: temporal-worker-slots
+        interval: 15s
+        rules:
+          - record: temporal_slot_utilization
+            expr: |
+              sum by (temporal_worker_deployment_name, temporal_worker_build_id, temporal_namespace, worker_type, task_queue) (
+                temporal_worker_task_slots_used
+              )
+              /
+              clamp_min(
+                sum by (temporal_worker_deployment_name, temporal_worker_build_id, temporal_namespace, worker_type, task_queue) (
+                  temporal_worker_task_slots_used
+                )
+                +
+                sum by (temporal_worker_deployment_name, temporal_worker_build_id, temporal_namespace, worker_type, task_queue) (
+                  temporal_worker_task_slots_available
+                ),
+                1
+              )
+{{- end }}

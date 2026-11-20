@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "temporal",
+    "worker",
+    "autoscaling"
+  ],
+  "properties": {
+    "temporal": {
+      "type": "object",
+      "required": [
+        "address",
+        "namespace",
+        "taskQueue",
+        "apiKeySecret",
+        "apiKeySecretKey"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9.-]+:[0-9]+$"
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?$"
+        },
+        "taskQueue": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+        },
+        "apiKeySecret": {
+          "type": "string",
+          "minLength": 1
+        },
+        "apiKeySecretKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "properties": {
+        "activitySlots": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 60
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pullPolicy": {
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "slotUtilizationTarget": {
+          "type": "string",
+          "pattern": "^([1-9][0-9]{0,2}m|1000m|0\\.[0-9]+|1)$"
+        },
+        "backlogTasksPerReplica": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "scaleDownStabilizationSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600
+        }
+      }
+    },
+    "load": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "interval": {
+          "type": "string",
+          "minLength": 2
+        },
+        "activityDuration": {
+          "type": "string",
+          "minLength": 2
+        }
+      }
+    }
+  }
+}

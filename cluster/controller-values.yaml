@@ -1,0 +1,9 @@
+image:
+  # The 0.32.0 chart from the v1.14.0 source tag still defaults to 1.13.0.
+  tag: "1.14.0"
+workerResourceTemplate:
+  hpaMatchLabelsStripTemporalPrefix: false
+  allowedResources:
+    - kinds: [HorizontalPodAutoscaler]
+      apiGroups: [autoscaling]
+      resources: [horizontalpodautoscalers]

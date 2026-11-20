@@ -1,0 +1,111 @@
+# Use an existing Temporal Cloud namespace; this chart does not create one.
+temporal:
+  address: example.a1b2c.tmprl.cloud:7233
+  namespace: example.a1b2c
+  apiKeySecret: temporal-api-key
+  apiKeySecretKey: api-key
+  taskQueue: media-processing
+
+worker:
+  image:
+    repository: temporal-hpa-worker
+    tag: v1
+    pullPolicy: IfNotPresent
+  # Small fixed slot count makes the example observable with modest traffic.
+  activitySlots: 4
+  terminationGracePeriodSeconds: 60
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 10
+  # An aggregate ratio must use HPA Value, not AverageValue.
+  slotUtilizationTarget: 750m
+  backlogTasksPerReplica: "4"
+  scaleDownStabilizationSeconds: 300
+
+rollout:
+  strategy: Progressive
+  steps:
+    - rampPercentage: 10
+      pauseDuration: 2m
+    - rampPercentage: 50
+      pauseDuration: 2m
+  gate:
+    workflowType: RolloutGate
+
+sunset:
+  scaledownDelay: 5m
+  deleteDelay: 15m
+
+# Creates a suspended CronJob. It runs only when you explicitly create a Job
+# from it; there is no unattended traffic generator.
+load:
+  enabled: true
+  count: 60
+  interval: 500ms
+  activityDuration: 30s
+
+prometheus:
+  enabled: true
+  alertmanager:
+    enabled: false
+  kube-state-metrics:
+    enabled: false
+  prometheus-node-exporter:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  configmapReload:
+    prometheus:
+      enabled: true
+  server:
+    # The parent chart renders <release>-worker-hpa-config.
+    configMapOverrideName: worker-hpa-config
+    persistentVolume:
+      enabled: false
+    retention: 2h
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 768Mi
+    extraSecretMounts:
+      - name: temporal-metrics-key
+        mountPath: /etc/temporal-metrics
+        secretName: temporal-cloud-metrics
+        readOnly: true
+
+adapter:
+  enabled: true
+  prometheus:
+    url: 'http://{{ .Release.Name }}-prometheus-server.{{ .Release.Namespace }}.svc'
+    port: 80
+  # Cloud metric timestamps can lag their scrape by several minutes.
+  metricsRelistInterval: 5m
+  extraArguments:
+    - --metrics-max-age=10m
+  rules:
+    default: false
+    external:
+      - seriesQuery: 'temporal_slot_utilization{temporal_worker_build_id!=""}'
+        resources:
+          namespaced: false
+        name:
+          as: temporal_slot_utilization
+        metricsQuery: 'avg(<<.Series>>{<<.LabelMatchers>>})'
+      - seriesQuery: 'temporal_cloud_v1_approximate_backlog_count{temporal_worker_build_id!="",temporal_worker_build_id!="__unversioned__"}'
+        resources:
+          namespaced: false
+        name:
+          as: temporal_cloud_v1_approximate_backlog_count
+        # Collapses region, priority, job, and other labels after selecting
+        # the task queue, namespace, deployment name and Build ID.
+        metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>})'

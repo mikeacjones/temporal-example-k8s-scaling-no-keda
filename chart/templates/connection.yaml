@@ -1,0 +1,9 @@
+apiVersion: temporal.io/v1alpha1
+kind: Connection
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  hostPort: {{ .Values.temporal.address | quote }}
+  apiKeySecretRef:
+    name: {{ .Values.temporal.apiKeySecret | quote }}
+    key: {{ .Values.temporal.apiKeySecretKey | quote }}
